@@ -1,0 +1,25 @@
+{
+  "required": true,
+  "package": "com.integration_package_core.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "refmap": "integration_package_core.mixins.refmap.json",
+  "mixins": [
+    "AnimationControllerMixin",
+    "CompoundTagMixin",
+    "EntityMixin",
+    "LivingEntityMixin",
+    "LootTableMixin",
+    "PlayerMixin"
+  ],
+  "minVersion": "0.8",
+  "client": [
+    "CameraMixin",
+    "EntityRendererMixin",
+    "HumanoidArmorLayerMixin",
+    "ItemEntityRendererMixin",
+    "KeyMappingMixin",
+    "LivingEntityRendererMixin",
+    "PlayerItemInHandLayerMixin",
+    "RenderLayerMixin"
+  ]
+}
