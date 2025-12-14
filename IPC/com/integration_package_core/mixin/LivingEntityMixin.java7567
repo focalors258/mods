@@ -1,0 +1,562 @@
+package com.integration_package_core.mixin;
+
+import com.integration_package_core.mixinTool.LivingEntityExpand;
+import com.integration_package_core.optimize.EntityBar;
+import com.integration_package_core.util.Network.NetworkManager;
+import net.minecraft.client.Minecraft;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.*;
+import net.minecraft.world.entity.ai.attributes.Attribute;
+import net.minecraft.world.entity.ai.attributes.AttributeMap;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.Level;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+
+@Mixin(LivingEntity.class)
+public abstract class LivingEntityMixin extends Entity implements Attackable, net.minecraftforge.common.extensions.IForgeLivingEntity, LivingEntityExpand {
+
+
+    public LivingEntityMixin(EntityType<?> pEntityType, Level pLevel) {
+        super(pEntityType, pLevel);
+
+    }
+
+
+    @Inject(
+            method = "<init>(Lnet/minecraft/world/entity/EntityType;Lnet/minecraft/world/level/Level;)V",
+            at = @At(
+                    value = "TAIL"
+
+            )
+    )
+    public void init(EntityType<? extends LivingEntity> pEntityType, Level pLevel, CallbackInfo ci) {
+
+        if (this.getPersistentData().contains("maxToughness"))
+            this.maxToughness = this.getPersistentData().getFloat("maxToughness");
+
+
+        if (this.getPersistentData().contains("smashTime"))
+            this.smashTime = this.getPersistentData().getFloat("smashTime");
+
+
+    }
+
+    //硬直时间
+    @Unique
+    public float smashTime = 200;
+    @Unique
+    public float smashEnd = 0;
+
+    @Unique
+    public boolean isSmash = false;
+
+
+    @Unique
+    public float maxToughness = 20;
+
+    @Unique
+    public float toughness = 20;
+
+
+    @OnlyIn(Dist.CLIENT)
+    @Unique
+    public float toughness_move = 1;
+    @OnlyIn(Dist.CLIENT)
+    @Unique
+    public float health_move = 1;
+    @OnlyIn(Dist.CLIENT)
+    @Unique
+    public float absorption_move = 0;
+
+
+    @OnlyIn(Dist.CLIENT)
+    @Unique
+    public float toughness_end = 0;
+    @OnlyIn(Dist.CLIENT)
+    @Unique
+    public float health_end = 0;
+    @OnlyIn(Dist.CLIENT)
+    @Unique
+    public float absorption_end = 0;
+
+
+    @OnlyIn(Dist.CLIENT)
+    @Unique
+    public float otoughness_move = 1;
+    @OnlyIn(Dist.CLIENT)
+    @Unique
+    public float ohealth_move = 1;
+    @OnlyIn(Dist.CLIENT)
+    @Unique
+    public float oabsorption_move = 0;
+
+
+    @Shadow
+    public abstract float getMaxHealth();
+
+
+    @Shadow
+    public abstract float getHealth();
+
+    //  @Accessor
+    //   private Vec3 position;
+
+    @Shadow
+    public abstract AttributeMap getAttributes();
+
+
+    @Shadow
+    public abstract float getAbsorptionAmount();
+
+    //
+
+    //public float EntityBar_shield_speed = 0;
+
+
+    @Shadow
+    public abstract double getAttributeBaseValue(Attribute pAttribute);
+
+
+    @Inject(
+            method = "tick",
+            at = @At(
+                    value = "TAIL"
+
+            )
+    )
+    @OnlyIn(Dist.CLIENT)
+    public void tick(CallbackInfo ci) {
+
+        if (getAttributes() == null) return;
+
+
+        if (
+                Minecraft.getInstance().player != null &&
+                        this.level().getServer() == null &&
+                        Minecraft.getInstance().player.distanceTo(this) < 20) {
+
+
+            float presentH = this.getHealth() / this.getMaxHealth();
+
+            float presentT = toughness / maxToughness;
+
+            float presentA = this.getAbsorptionAmount() / this.getMaxHealth();
+            if (this.tickCount <= 1) {
+
+
+                toughness = maxToughness;
+            }
+
+            //  oabsorption_move = absorption_move;
+            // // ohealth_move = health_move;
+            //  otoughness_move = toughness_move;
+
+            float speed = 0;
+
+            if (this.invulnerableTime == 0) {
+                speed = 0.02F;
+            } else {
+                speed = 0.005F;
+            }
+
+
+            if (health_end <= tickCount) {
+                if (health_move != presentH) {
+                    health_end = tickCount + 30;
+                }
+                if (health_end <= tickCount) {
+                    ohealth_move = presentH;
+                }
+            } else {
+                health_move = presentH;
+            }
+
+            if (toughness_end <= tickCount) {
+                if (toughness_move != presentT) {
+                    toughness_end = tickCount + 30;
+                }
+                if (toughness_end <= tickCount) {
+                    otoughness_move = presentT;
+                }
+            } else {
+                toughness_move = presentT;
+            }
+
+            if (absorption_end <= tickCount) {
+                if (absorption_move != presentA) {
+                    absorption_end = tickCount + 30;
+                }
+                if (absorption_end <= tickCount) {
+                    oabsorption_move = presentA;
+                }
+            } else {
+                absorption_move = presentA;
+            }
+
+
+            //if (0) {}
+            //EntityBar.getBarMove(health_move, presentH, speed);
+            //    absorption_move = EntityBar.getBarMove(absorption_move, presentA, speed);
+            //    toughness_move = EntityBar.getBarMove(toughness_move, presentT, speed);
+
+
+        }
+
+
+        //   System.out.println(this.tickCount );
+
+        //  float[] a = EntityBarDataHandle.getBarMove(EntityData.EntityBar_health_move.get(uuid), getHealth() / getMaxHealth(), EntityData.EntityBar_health_speed.get(uuid));
+//
+        //  EntityData.EntityBar_health_move.put(this.uuid, a[0]);
+//
+        //  EntityData.EntityBar_health_speed.put(this.uuid, a[1]);
+//
+        //  System.out.println("变化条" + a[0]);
+//
+        //  System.out.println("速度" + a[1]);
+    }
+
+    @Inject(
+            method = "tick",
+            at = @At(
+                    value = "HEAD"
+
+            )
+    )
+    public void tick1(CallbackInfo ci) {
+
+        if (this.level().getServer() != null) {
+
+            //   System.out.println(this + "  " + Math.max(0, smashEnd - this.tickCount));
+            //   if(!(((Entity)this) instanceof Player)){}
+
+
+            if ((smashEnd - this.tickCount) <= 0 && toughness == 0 && !isSmash) {
+
+                setSmashEnd(this.tickCount + smashTime);
+                setSmash(true);
+               //if (((Entity) this) instanceof Mob m) {
+               //
+               //}
+            }
+
+
+            if ((smashEnd - this.tickCount) <= 0 && isSmash) {
+                //  System.out.println(smashEnd - this.tickCount + "   " + isSmash)
+                setToughness(maxToughness);
+                setSmash(false);
+          //    if (((Entity) this) instanceof Mob m) {
+          //        m.setNoAi(false);
+          //    }
+            }
+
+            if (this.rigidEnd < tickCount) {
+                this.setRigid(false);
+            }
+
+
+            if (((Entity) this) instanceof Mob m) {
+
+
+
+                if (isSmash || isRigid) {
+
+                  //  System.out.println(rigidEnd-tickCount);
+
+                    m.setNoAi(true);
+                } else {
+                    m.setNoAi(false);
+                }
+            }
+
+
+        }
+
+    }
+
+//   public float getHealth_move() {
+
+//       return health_move;
+//   }
+
+//   public float getAbsorption_move() {
+
+//       return absorption_move;
+//   }
+
+    //  public float getToughness_move() {
+
+    //      return toughness_move;
+    //  }
+//弱点击破
+    public boolean isSmash() {
+
+        return isSmash;
+
+    }
+
+    //攻击硬直
+    @Unique
+    public boolean isRigid = false;
+
+    @Unique
+    public float rigidEnd = 0;
+
+    @Unique
+    public float rigidTime = 0;
+
+
+    public void addRigid(int time) {
+       if(!isRigid){
+            setRigidEnd(time + tickCount);
+            setRigidTime(time);
+            setRigid(true);
+        }
+
+    }
+
+
+    public void setRigid(boolean r) {
+
+        isRigid = r;
+        CompoundTag d = new CompoundTag();
+        d.putInt("id", this.getId());
+        d.putBoolean("isRigid", isRigid);
+        if (this.level().getServer() != null) NetworkManager.sendAll("isRigidSync", d);
+
+    }
+
+    public boolean isRigid() {
+
+        return isRigid;
+    }
+
+
+    public float getRigidEnd() {
+
+        return rigidEnd;
+
+    }
+
+    public float getRigidTime() {
+
+        return rigidTime;
+
+    }
+
+
+    public void setRigidEnd(float value) {
+
+        rigidEnd = value;
+        CompoundTag d = new CompoundTag();
+        d.putInt("id", this.getId());
+        d.putFloat("rigidEnd", rigidEnd);
+        if (this.level().getServer() != null) NetworkManager.sendAll("rigidEndSync", d);
+    }
+
+    public void setRigidTime(float value) {
+
+        rigidTime = value;
+        CompoundTag d = new CompoundTag();
+        d.putInt("id", this.getId());
+        d.putFloat("rigidTime", rigidTime);
+        if (this.level().getServer() != null) NetworkManager.sendAll("rigidTimeSync", d);
+    }
+
+    public float getHealth_end() {
+
+        return health_end;
+    }
+
+    public float getAbsorption_end() {
+
+        return absorption_end;
+    }
+
+    public float getToughness_end() {
+
+        return toughness_end;
+    }
+
+    public float getOHealth_move() {
+
+        return ohealth_move;
+    }
+
+    public float getOAbsorption_move() {
+
+        return oabsorption_move;
+    }
+
+    public float getOToughness_move() {
+
+        return otoughness_move;
+    }
+
+    public float getSmashEnd() {
+
+        return smashEnd;
+    }
+
+    public float getSmashTime() {
+
+        return smashTime;
+
+
+    }
+
+    public void setSmashEnd(float value) {
+
+        smashEnd = value;
+        CompoundTag d = new CompoundTag();
+        d.putInt("id", this.getId());
+        d.putFloat("smashEnd", smashEnd);
+        if (this.level().getServer() != null) NetworkManager.sendAll("smashEndSync", d);
+    }
+
+
+    public void setSmashTime(float value) {
+
+        smashTime = Math.max(0, value);
+        CompoundTag d = new CompoundTag();
+        d.putInt("id", this.getId());
+        d.putFloat("smashTime", smashTime);
+
+        this.getPersistentData().putFloat("smashTime", smashTime);
+
+        if (this.level().getServer() != null) NetworkManager.sendAll("smashTimeSync", d);
+    }
+
+
+    public void setToughness(float value) {
+
+        //   System.out.println(value);
+
+        toughness = Math.min(Math.max(0, value), maxToughness);
+        CompoundTag d = new CompoundTag();
+        d.putFloat("toughness", toughness);
+        d.putInt("id", this.getId());
+        if (this.level().getServer() != null) NetworkManager.sendAll("toughnessSync", d);
+    }
+
+    public void setMaxToughness(float value) {
+        maxToughness = Math.max(0, value);
+        CompoundTag d = new CompoundTag();
+        d.putInt("id", this.getId());
+        d.putFloat("maxToughness", maxToughness);
+
+        this.getPersistentData().putFloat("maxToughness", maxToughness);
+
+        if (this.level().getServer() != null) NetworkManager.sendAll("maxToughnessSync", d);
+    }
+
+    public void setSmash(boolean value) {
+        isSmash = value;
+        CompoundTag d = new CompoundTag();
+        d.putInt("id", this.getId());
+        d.putBoolean("smash", value);
+
+        if (this.level().getServer() != null) NetworkManager.sendAll("isSmash", d);
+    }
+
+
+    public float getToughness() {
+
+        return toughness;
+    }
+
+    public float getMaxToughness() {
+
+        return maxToughness;
+    }
+
+
+    @Inject(
+            method = "setAbsorptionAmount",
+            at = @At(
+                    value = "TAIL"
+
+            )
+    )
+    public void setAbsorptionAmount1(float pAbsorptionAmount, CallbackInfo ci) {
+
+
+        CompoundTag d = new CompoundTag();
+        d.putInt("id", this.getId());
+        d.putFloat("AbsorptionAmount", pAbsorptionAmount);
+
+
+        if (this.level().getServer() != null) NetworkManager.sendAll("AbsorptionAmount", d);
+
+    }
+
+
+}
+
+// "Lnet/minecraft/client/renderer/entity/EntityRenderDispatcher;render(Lnet/minecraft/world/entity/Entity;DDDFFLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V",
+
+//this.position
+//EntityBar_health_move = getHealth();
+
+//  if(Minecraft.getInstance().player.openMenu())
+//  System.out.println(oldHealth);
+//Minecraft.getInstance().;
+// this.level().getplay
+//System.out.println(111);
+//  shift = At.Shift.AFTER
+
+//target ="Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/network/syncher/SynchedEntityData;define(Lnet.minecraft.network.syncher)",
+
+
+//private float*  toughness;
+
+//private  float health_move;
+
+//private float  shield_move;
+//private float toughness_move;
+
+
+//  this.entityData.define(SynchedEntityData.defineId(LivingEntityMixin.class, EntityDataSerializers.INT),0);
+// EntityData.EntityBar_health_move.put(this.uuid, 1F);
+// EntityData.EntityBar_toughness_move.put(this.uuid, 1D);
+// EntityData.EntityBar_shield_move.put(this.uuid, 1F);
+// EntityData.EntityBar_health_speed.put(this.uuid, 0F);
+// EntityData.EntityBar_shield_speed.put(this.uuid, 0F);
+// EntityData.EntityBar_toughness_speed.put(this.uuid, 0F);
+// EntityData.EntityBar_toughness.put(this.uuid, this.getAttributeBaseValue(Attributes.ARMOR_TOUGHNESS));
+
+//@Inject(
+//        method = "reapplyPosition",
+//        at = @At(
+//                value = "TAIL"//不能在构造函数头部mixin
+//        )
+//)
+// public void init_oldHealth(EntityType<? extends LivingEntity> pEntityType, Level pLevel, CallbackInfo ci) {
+// //    if (getAttributes() == null) return;
+//
+//     LivingEntityData.EntityBar_health_move.put(this.uuid, 1F);
+//
+//
+//     LivingEntityData.EntityBar_toughness_move.put(this.uuid, 1D);
+//
+//     LivingEntityData.EntityBar_shield_move.put(this.uuid, 1F);
+//
+//     LivingEntityData.EntityBar_health_speed.put(this.uuid, 0F);
+//
+//     LivingEntityData.EntityBar_shield_speed.put(this.uuid, 0F);
+//
+//     LivingEntityData.EntityBar_toughness_speed.put(this.uuid, 0F);
+//
+//
+//     LivingEntityData.EntityBar_toughness.put(this.uuid, this.getAttributeBaseValue(Attributes.ARMOR_TOUGHNESS));
+//
+// }
